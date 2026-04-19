@@ -12,7 +12,9 @@ const hebrew_font = Fredoka({
 
 interface OptionsContextType {
   bgColor: string;
+  fgColor: string;
   setBgColor: (color: string) => void;
+  setFgColor: (color: string) => void;
   hebrew_font: any;
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
@@ -23,12 +25,19 @@ const OptionsContext = createContext<OptionsContextType | undefined>(undefined);
 
 export function OptionsProvider({ children }: { children: ReactNode }) {
   const [bgColor, setBgColorState] = useState("#000000");
+  const [fgColor, setFgColorState] = useState("#363636");
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("bgColor");
     if (saved) {
       setBgColorState(saved);
+    }
+  }, []);
+  useEffect(() => {
+    const saved = localStorage.getItem("fgColor");
+    if (saved) {
+      setFgColorState(saved);
     }
   }, []);
 
@@ -43,6 +52,10 @@ export function OptionsProvider({ children }: { children: ReactNode }) {
     setBgColorState(color);
     localStorage.setItem("bgColor", color);
   };
+  const setFgColor = (color: string) => {
+    setFgColorState(color);
+    localStorage.setItem("fgColor", color);
+  };
 
   const login = async (email: string, password: string) => {
     await signInWithEmailAndPassword(auth, email, password);
@@ -53,7 +66,7 @@ export function OptionsProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <OptionsContext.Provider value={{ bgColor, setBgColor, hebrew_font, user, login, logout }}>
+    <OptionsContext.Provider value={{ bgColor, fgColor, setBgColor, setFgColor, hebrew_font, user, login, logout }}>
       {children}
     </OptionsContext.Provider>
   );

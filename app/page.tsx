@@ -1,10 +1,12 @@
 "use client";
 
 import IsraelTime from "./components/IsraelTime";
+import Login from "./components/Login";
 import Link from "next/link";
 import Image from "next/image"
 import { useOptions } from "./options";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion"
 
 
 export default function Home() {
@@ -13,22 +15,18 @@ export default function Home() {
 
   if (!user) {
     return (
-      <div className="flex flex-col flex-1 items-center justify-center font-sans bg-black">
-        <button
-          onClick={() => router.push("/login")}
-          className="px-6 py-3 bg-blue-500 text-white rounded-lg text-lg font-semibold hover:bg-blue-600 transition-colors"
-        >
-          לחץ כדי להתחבר
-        </button>
-      </div>
+      <Login/>
     );
   }
 
   return (
     <div className="flex flex-col flex-1 items-center justify-center font-sans" style={{ backgroundColor: bgColor }}>
-      <Link href="/settings" className="fixed top-6 right-6 text-white hover:text-gray-300 transition-colors">
+      <motion.button 
+        className="fixed top-6 right-6 bg-zinc-800 p-4 rounded-2xl"
+        onClick={() => router.push("/settings")}
+        whileHover={{ scale: 1.05, filter: "brightness(1.3)" }}>
         <Image className="invert" src="/gear.svg" width="32" height="32" alt="Settings" />
-      </Link>
+      </motion.button>
       <main className="flex w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-zinc sm:items-start">
         <h1 className={`flex self-center py-10 text-6xl font-bold ${hebrew_font.className}`}> שם </h1>
         <button 

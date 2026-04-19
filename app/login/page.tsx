@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useOptions } from "../options";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Login() {
   const [name, setName] = useState("");
@@ -26,8 +27,22 @@ export default function Login() {
 
   return (
     <div dir="rtl" className="flex flex-col items-center justify-center min-h-screen p-8">
-      <h1 className="text-2xl font-bold mb-8">התחבר לאתר</h1>
-      <form onSubmit={handleSubmit} className="flex flex-col space-y-4 w-full max-w-md">
+      <motion.h1 
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7 }}
+        className="text-2xl font-bold mb-8"
+      >
+        התחבר לאתר
+      </motion.h1>
+
+      <motion.form 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        onSubmit={handleSubmit} 
+        className="flex flex-col space-y-4 w-full max-w-md"
+      >
         <input
           type="text"
           placeholder="שם"
@@ -45,11 +60,32 @@ export default function Login() {
           className="px-4 py-2 border rounded"
           required
         />
-        <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded">
+        
+        <motion.button 
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.98 }}
+          transition={{ duration: 1 }}
+          type="submit" 
+          className="px-4 py-2 bg-blue-500 text-white rounded"
+        >
           התחבר
-        </button>
-        {error && <p className="text-red-500">{error}</p>}
-      </form>
+        </motion.button>
+
+        <AnimatePresence>
+          {error && (
+            <motion.p 
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0 }}
+              className="text-red-500"
+            >
+              {error}
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </motion.form>
     </div>
   );
 }
