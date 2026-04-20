@@ -36,7 +36,7 @@ export default function ConfirmDialog({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-110"
             onClick={onCancel}
           />
 
@@ -47,7 +47,7 @@ export default function ConfirmDialog({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -20 }}
             transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-            className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none ${hebrew_font.className}`}
+            className={`fixed inset-0 flex items-center justify-center z-120 pointer-events-none ${hebrew_font.className}`}
           >
             <div className="bg-white rounded-lg shadow-2xl p-6 w-96 pointer-events-auto">
               <h2 className="text-xl font-bold text-gray-900 mb-2">{title}</h2>
