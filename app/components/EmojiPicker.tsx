@@ -45,7 +45,7 @@ export default function EmojiPicker({ value, onChange } : EmojiPickerProps) {
   const [open,   setOpen]   = useState(false);
   const [search, setSearch] = useState("");
   const [tab,    setTab]    = useState(Object.keys(EMOJI_CATEGORIES)[0]);
-  const searchRef           = useRef(null);
+  const searchRef           = useRef<HTMLInputElement>(null);
   const wrapRef             = useRef(null);
 
   // Focus search when panel opens
