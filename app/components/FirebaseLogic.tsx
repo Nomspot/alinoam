@@ -50,7 +50,7 @@ export interface DateItem {
   category: string; // references DateCategory.id
   createdBy: string;
   timestamp?: Timestamp;
-  completed: boolean;
+  completed?: boolean;
 }
 
 export interface DateCategory {
