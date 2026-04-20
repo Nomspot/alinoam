@@ -46,7 +46,7 @@ export default function EmojiPicker({ value, onChange } : EmojiPickerProps) {
   const [search, setSearch] = useState("");
   const [tab,    setTab]    = useState(Object.keys(EMOJI_CATEGORIES)[0]);
   const searchRef           = useRef<HTMLInputElement>(null);
-  const wrapRef             = useRef(null);
+  const wrapRef             = useRef<HTMLInputElement>(null);
 
   // Focus search when panel opens
   useEffect(() => {
@@ -55,8 +55,8 @@ export default function EmojiPicker({ value, onChange } : EmojiPickerProps) {
 
   // Close on outside click
   useEffect(() => {
-    const handler = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    const handler = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -64,14 +64,20 @@ export default function EmojiPicker({ value, onChange } : EmojiPickerProps) {
 
   const displayEmojis = useMemo(() => {
     if (search.trim()) {
-      // Naive search: match emoji unicode name approximation via a lookup map
       const q = search.trim().toLowerCase();
-      return ALL_EMOJIS.filter(e => EMOJI_NAMES[e]?.includes(q));
+      return ALL_EMOJIS.filter(e => {
+        // Cast EMOJI_NAMES as a Record to allow string indexing
+        const nameMap = EMOJI_NAMES as Record<string, string>;
+        return nameMap[e]?.includes(q);
+      });
     }
-    return EMOJI_CATEGORIES[tab]?.emojis ?? [];
+    
+    // Cast EMOJI_CATEGORIES to any or a specific record type
+    const categories = EMOJI_CATEGORIES as Record<string, { label: string; emojis: string[] }>;
+    return categories[tab]?.emojis ?? [];
   }, [search, tab]);
 
-  const pick = (emoji) => {
+  const pick = (emoji: string) => {
     onChange(emoji);
     setOpen(false);
     setSearch("");
