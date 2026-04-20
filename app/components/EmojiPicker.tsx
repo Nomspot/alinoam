@@ -36,7 +36,12 @@ const ALL_EMOJIS = Object.values(EMOJI_CATEGORIES).flatMap(c => c.emojis);
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function EmojiPicker({ value, onChange }) {
+interface EmojiPickerProps {
+  value: string;
+  onChange: (emoji: string) => void;
+}
+
+export default function EmojiPicker({ value, onChange } : EmojiPickerProps) {
   const [open,   setOpen]   = useState(false);
   const [search, setSearch] = useState("");
   const [tab,    setTab]    = useState(Object.keys(EMOJI_CATEGORIES)[0]);
