@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useOptions } from '../options';
 import IsraelTime from '../components/IsraelTime';
 import { useFirebaseLogic } from '../components/FirebaseLogic';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 // ─── Star field canvas ────────────────────────────────────────────────────────
 
@@ -145,6 +146,12 @@ function DarkInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   );
 }
 
+
+export interface PendingItem {
+  id: string;
+  name: string;
+}
+
 // ─── Main Page Component ──────────────────────────────────────────────────────
 
 export default function KitchenHomePage() {
@@ -156,10 +163,24 @@ export default function KitchenHomePage() {
     currentUser, 
     fetchGroceryItems, 
     grocerysItems,
-    setGrocerysItems,
+    toggleGroceryAmountMode,
+    setGroceryAmount,
+    deleteGroceryItem,
+    toggleGroceryItemDone,
+    recipeItems,
+    recipesLoading,
+    fetchRecipeItems,
+    addRecipeItem,
+    deleteRecipeItem,
   } = useFirebaseLogic();
   
   const [activeTab, setActiveTab] = useState<'groceries' | 'recipes' | 'movies'>('groceries');
+
+  const [showDeleteGroceryConfirmDialog, setShowDeleteGroceryConfirmDialog] = useState<boolean>(false);
+  const [pendingGroceryItem, setPendingGroceryItem] = useState<PendingItem | null>(null)
+
+  const cancelGroceryItemDeletion      = () => { setPendingGroceryItem(null); setShowDeleteGroceryConfirmDialog(false); };
+  const confirmGroceryItemDeletion     = () => { if (pendingGroceryItem) deleteGroceryItem(pendingGroceryItem.id); setShowDeleteGroceryConfirmDialog(false); };
 
   // Local State Mocks (Replace with useFirebaseLogic later)
   const [groceryInput, setGroceryInput] = useState('');
@@ -167,10 +188,17 @@ export default function KitchenHomePage() {
     if (currentUser) fetchGroceryItems();
   }, [currentUser, fetchGroceryItems]);
 
-  const [recipeInput, setRecipeInput] = useState({ title: '', link: '' });
-  const [recipes, setRecipes] = useState([
-    { id: 1, title: 'פסטה רוזה מושלמת', link: 'https://example.com/pasta' },
-  ]);
+  const [isLinkMode, setIsLinkMode] = useState(true);
+  const [recipeInput, setRecipeInput] = useState({ name: '', link: '', description: '' });
+  useEffect(() => {
+    if (currentUser) fetchRecipeItems();
+  }, [currentUser, fetchRecipeItems]);
+
+  const [showDeleteRecipeConfirmDialog, setShowDeleteRecipeConfirmDialog] = useState<boolean>(false);
+  const [pendingRecipeItem, setPendingRecipeItem] = useState<PendingItem | null>(null)
+
+  const cancelRecipeItemDeletion      = () => { setPendingRecipeItem(null); setShowDeleteRecipeConfirmDialog(false); };
+  const confirmRecipeItemDeletion     = () => { if (pendingRecipeItem) deleteRecipeItem(pendingRecipeItem.id); setShowDeleteRecipeConfirmDialog(false); };
 
   const [movieInput, setMovieInput] = useState('');
   const [movies, setMovies] = useState([
@@ -188,7 +216,7 @@ export default function KitchenHomePage() {
     const success = await addGroceryItem({
       name: groceryInput,
       category: 'General', // Or add a category selector in your UI
-      amount: 1,
+      amount: 0,
     });
 
     if (success) {
@@ -196,16 +224,14 @@ export default function KitchenHomePage() {
       fetchGroceryItems(); // Refresh the list
     }
   };
-
-  const toggleGrocery = (id: string) => {
-    setGrocerysItems(grocerysItems.map(g => g.id === id ? { ...g, done: !g.done } : g));
-  };
-
-  const addRecipe = (e: React.FormEvent) => {
+  
+  const handleAddRecepie = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!recipeInput.title.trim()) return;
-    setRecipes([...recipes, { id: Date.now(), ...recipeInput }]);
-    setRecipeInput({ title: '', link: '' });
+    if (!recipeInput.name.trim()) return;
+    const ok = await addRecipeItem(recipeInput);
+    if (ok) {
+      setRecipeInput({ name:"", link:"", description:"" });
+    }
   };
 
   const addMovie = (e: React.FormEvent) => {
@@ -316,6 +342,21 @@ export default function KitchenHomePage() {
             ))}
           </motion.div>
 
+          {/* --- MODALS --- */}
+          <ConfirmDialog isOpen={showDeleteGroceryConfirmDialog} title="האם ברצונך למחוק את הפריט?"
+            message={`האם למחוק את הפריט : ${pendingGroceryItem?.name}`}
+            confirmText="אישור" cancelText="ביטול"
+            onConfirm={confirmGroceryItemDeletion}
+            onCancel={cancelGroceryItemDeletion}
+            isDangerous />
+
+          <ConfirmDialog isOpen={showDeleteRecipeConfirmDialog} title="האם ברצונך למחוק את המתכון?"
+            message={`האם למחוק את המתכון : ${pendingRecipeItem?.name}`}
+            confirmText="אישור" cancelText="ביטול"
+            onConfirm={confirmRecipeItemDeletion}
+            onCancel={cancelRecipeItemDeletion}
+            isDangerous />
+
           {/* ── Tab Content ── */}
           <AnimatePresence mode="wait">
             
@@ -335,46 +376,259 @@ export default function KitchenHomePage() {
                   </form>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {grocerysItems.map(item => (
-                      <motion.div
-                        key={item.id} layout initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                        onClick={() => toggleGrocery(item.id)}
-                        whileHover={{ background: 'rgba(255,255,255,0.08)' }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(255,255,255,0.03)', padding: '14px 18px', borderRadius: 14, cursor: 'pointer', border: '1px solid rgba(255,255,255,0.05)' }}
-                      >
-                        <div style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${item.done ? '#06b6d4' : '#555'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', background: item.done ? '#06b6d4' : 'transparent', transition: 'all 0.2s' }}>
-                          {item.done && <span style={{ color: '#fff', fontSize: 14, fontWeight: 'bold' }}>✓</span>}
-                        </div>
-                        <span style={{ fontSize: 16, color: item.done ? '#64748b' : '#f0e8d8', textDecoration: item.done ? 'line-through' : 'none', transition: 'all 0.2s' }}>
-                          {item.name}
-                        </span>
-                      </motion.div>
-                    ))}
-                  </div>
+                        <motion.div
+                          key={item.id} layout initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                          onClick={() => toggleGroceryItemDone(item.id, !item.done)}
+                          whileHover={{ background: 'rgba(255,255,255,0.08)' }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(255,255,255,0.03)', padding: '14px 18px', borderRadius: 14, cursor: 'pointer', border: '1px solid rgba(255,255,255,0.05)' }}
+                        >
+                          {/* 1. CHECKBOX */}
+                          <div 
+                            style={{ width: 22, height: 22, borderRadius: 6,
+                            border: `2px solid ${item.done ? '#06b6d4' : '#555'}`, display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', background: item.done ? '#06b6d4' : 'transparent', transition: 'all 0.2s' }}>
+                            {item.done && <span style={{ color: '#fff', fontSize: 14, fontWeight: 'bold' }}>✓</span>}
+                          </div>
+
+                          {/* 2. ITEM NAME */}
+                          <span style={{ fontSize: 16, color: item.done ? '#64748b' : '#f0e8d8', textDecoration: item.done ? 'line-through' : 'none', transition: 'all 0.2s' }}>
+                            {item.name}
+                          </span>
+
+                          {/* 3. NEW: AMOUNT SECTION */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: 'auto' }}>
+                            <AnimatePresence mode="wait">
+                              {item.amount > 0 ? (
+                                <motion.input
+                                  key="amount-input"
+                                  initial={{ opacity: 0, x: 10, width: 0 }}
+                                  animate={{ opacity: 1, x: 0, width: 50 }}
+                                  exit={{ opacity: 0, x: 10, width: 0 }}
+                                  type="number"
+                                  placeholder="1"
+                                  value={item.amount}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) => {
+                                    const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                    setGroceryAmount(item.id, val);
+                                  }}
+                                  style={{
+                                    background: 'rgba(255,255,255,0.05)',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    borderRadius: 6,
+                                    color: '#fff',
+                                    padding: '4px 8px',
+                                    fontSize: 14,
+                                    outline: 'none'
+                                  }}
+                                />
+                              ) : null}
+                            </AnimatePresence>
+
+                            <motion.button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleGroceryAmountMode(item.id); 
+                              }}
+                              whileHover={{ background: 'rgba(14, 165, 233, 0.2)' }}
+                              style={{
+                                background: item.amount > 0 ? '#0ea5e9' : 'rgba(255,255,255,0.05)',
+                                border: 'none',
+                                borderRadius: 8,
+                                color: item.amount > 0 ? '#fff' : '#7a6a7a',
+                                padding: '4px 10px',
+                                fontSize: 12,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              {item.amount > 0 ? 'כמות' : '#'}
+                            </motion.button>
+                          </div>
+
+                          {/* 4. DELETE BUTTON */}
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0 }}>
+                            <motion.button
+                              onClick={(e) => {
+                                e.stopPropagation(); 
+                                setPendingGroceryItem(item)
+                                setShowDeleteGroceryConfirmDialog(true)
+                              }}
+                              whileHover={{ scale: 1.15, color: "#e87080" }}
+                              whileTap={{ scale: 0.9 }}
+                              style={{
+                                background: "rgba(255,255,255,0.04)",
+                                border: "1px solid rgba(255,255,255,0.08)",
+                                color: "#4a3a5a", 
+                                borderRadius: 8,
+                                width: 28, height: 28,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                cursor: "pointer", fontSize: 17, lineHeight: 1,
+                                transition: "color 0.18s",
+                              }}
+                            >
+                              X
+                            </motion.button>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
                 </GlassCard>
               </motion.div>
             )}
 
             {/* RECIPES TAB */}
             {activeTab === 'recipes' && (
-              <motion.div key="recipes" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.3 }}>
+              <motion.div key="recipes" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }}>
                 <GlassCard style={{ padding: '24px', marginBottom: 20 }}>
-                  <form onSubmit={addRecipe} style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
-                    <DarkInput value={recipeInput.title} onChange={e => setRecipeInput({ ...recipeInput, title: e.target.value })} placeholder="שם המתכון (לדוגמה: פסטה רוזה)" />
-                    <DarkInput value={recipeInput.link} onChange={e => setRecipeInput({ ...recipeInput, link: e.target.value })} placeholder="לינק למתכון (TikTok, אתר, וכו') - לא חובה" />
-                    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} style={{ background: 'linear-gradient(135deg, #0284c7, #06b6d4)', color: '#fff', border: 'none', borderRadius: 11, padding: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  
+                  <form onSubmit={handleAddRecepie} style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+                    <DarkInput 
+                      value={recipeInput.name} 
+                      onChange={e => setRecipeInput({ ...recipeInput, name: e.target.value })} 
+                      placeholder="שם המתכון (לדוגמה: פסטה רוזה)" 
+                    />
+
+                    {/* --- TOGGLE HEADER --- */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 4px' }}>
+                      <span style={{ fontSize: 13, color: '#64748b', fontWeight: 500 }}>סוג מתכון:</span>
+                      <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 2 }}>
+                        <button 
+                          type="button"
+                          onClick={() => {setIsLinkMode(true); setRecipeInput({...recipeInput, link: "", description: ""})}}
+                          style={{ 
+                            border: 'none', padding: '4px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+                            background: isLinkMode ? '#0ea5e9' : 'transparent',
+                            color: isLinkMode ? '#fff' : '#94a3b8',
+                            transition: '0.2s'
+                          }}
+                        >קישור חיצוני</button>
+                        <button 
+                          type="button"
+                          onClick={() => {setIsLinkMode(false); setRecipeInput({...recipeInput, link: "", description: ""})}}
+                          style={{ 
+                            border: 'none', padding: '4px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+                            background: !isLinkMode ? '#0ea5e9' : 'transparent',
+                            color: !isLinkMode ? '#fff' : '#94a3b8',
+                            transition: '0.2s'
+                          }}
+                        >תיאור טקסט</button>
+                      </div>
+                    </div>
+
+                    {/* --- ANIMATED INPUT SWAP --- */}
+                    <AnimatePresence mode="wait">
+                      {isLinkMode ? (
+                        <motion.div
+                          key="link-input"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <DarkInput 
+                            value={recipeInput.link} 
+                            onChange={e => setRecipeInput({ ...recipeInput, link: e.target.value })} 
+                            placeholder="הדבק לינק (TikTok, Instagram, אתר)" 
+                          />
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="desc-input"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <textarea 
+                            value={recipeInput.description} 
+                            onChange={e => setRecipeInput({ ...recipeInput, description: e.target.value })} 
+                            placeholder="כתוב את הוראות ההכנה כאן..."
+                            style={{
+                              width: '100%', minHeight: 100, background: 'rgba(0,0,0,0.2)', 
+                              border: '1px solid rgba(255,255,255,0.1)', borderRadius: 11,
+                              padding: 12, color: '#f0e8d8', fontFamily: 'inherit', outline: 'none'
+                            }}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      style={{ background: 'linear-gradient(135deg, #0284c7, #06b6d4)',
+                      color: '#fff', border: 'none', borderRadius: 11, padding: '12px', fontWeight: 600, cursor: 'pointer' }}
+                      type="submit">
                       שמור לכספת המתכונים
                     </motion.button>
                   </form>
+
+                  {/* --- LIST DISPLAY --- */}
                   <div style={{ display: 'grid', gap: 12 }}>
-                    {recipes.map(recipe => (
-                      <motion.a
-                        key={recipe.id} href={recipe.link || '#'} target="_blank" rel="noopener noreferrer"
-                        whileHover={{ scale: 1.02, x: -4 }}
-                        style={{ display: 'block', textDecoration: 'none', background: 'rgba(6, 182, 212, 0.1)', border: '1px solid rgba(6, 182, 212, 0.2)', padding: '16px 20px', borderRadius: 14 }}
+                    {recipeItems.map(recipe => (
+                      <motion.div
+                        key={recipe.id}
+                        whileHover={{ scale: 1.01, x: -4 }}
+                        style={{ 
+                          position: 'relative',
+                          display: 'block', 
+                          background: 'rgba(6, 182, 212, 0.1)', 
+                          border: '1px solid rgba(6, 182, 212, 0.2)', 
+                          padding: '16px 20px', 
+                          borderRadius: 14 
+                        }}
                       >
-                        <div style={{ fontSize: 18, fontWeight: 500, color: '#f0e8d8', marginBottom: 4 }}>{recipe.title}</div>
-                        <div style={{ fontSize: 13, color: '#38bdf8' }}>לחץ לצפייה במתכון 🔗</div>
-                      </motion.a>
+                        {/* --- DELETE BUTTON --- */}
+                        <motion.button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPendingRecipeItem(recipe);
+                            setShowDeleteRecipeConfirmDialog(true)
+                          }}
+                          whileHover={{ scale: 1.1, backgroundColor: 'rgba(232, 112, 128, 0.2)', color: '#e87080' }}
+                          whileTap={{ scale: 0.9 }}
+                          style={{
+                            position: 'absolute',
+                            top: 12,
+                            left: 12, // Positions it on the left
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            color: '#64748b',
+                            borderRadius: 8,
+                            width: 26,
+                            height: 26,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            fontSize: 14,
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          ✕
+                        </motion.button>
+
+                        {/* --- CARD CONTENT --- */}
+                        <div style={{ fontSize: 18, fontWeight: 500, color: '#f0e8d8', paddingLeft: 30 }}>
+                          {recipe.name}
+                        </div>
+                        
+                        {recipe.link ? (
+                          <a 
+                            href={recipe.link} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            style={{ fontSize: 13, color: '#38bdf8', textDecoration: 'none', display: 'inline-block', marginTop: 4 }}
+                          >
+                            לחץ לצפייה במתכון ({recipe.link}) 🔗
+                          </a>
+                        ) : (
+                          <div style={{ fontSize: 14, color: '#94a3b8', marginTop: 6, whiteSpace: 'pre-wrap' }}>
+                            {recipe.description}
+                          </div>
+                        )}
+                      </motion.div>
                     ))}
                   </div>
                 </GlassCard>

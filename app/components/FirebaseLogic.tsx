@@ -15,6 +15,7 @@ import {
   setDoc,
   updateDoc,
   where,
+  getDoc,
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -70,11 +71,20 @@ export type SeedDateCategory = { id: string } & Omit<DateCategory, 'id' | 'creat
 export interface GroceryItem {
   id: string;
   name: string;
-  amount?: number;
+  amount: number;
   category: string;
   createdBy: string;
   timestamp?: Timestamp;
   done?: boolean;
+}
+
+export interface RecipeItem {
+  id: string;
+  name: string;
+  link?: string;
+  description?: string;
+  createdBy: string;
+  timestamp?: Timestamp;
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -509,7 +519,7 @@ export function useFirebaseLogic() {
     } catch (err) {
       console.error('Error deleting date:', err); return false;
     }
-  }, []);
+  }, [fetchUncompletedDates, fetchDateItems]);
 
   // Add 'completed' to the arguments so the function knows what value to set
 const setDateItemCompleted = useCallback(async (id: string, completed: boolean): Promise<boolean> => {
@@ -575,9 +585,9 @@ const setDateItemCompleted = useCallback(async (id: string, completed: boolean):
   //  Home&Kitchen PAGE
   // ══════════════════════════════════════════════════════════════════════════
 
+  // ── Shopping List ─────────────────────────────────────────────────────
   const [grocerysLoading,   setGrocerysLoading]   = useState(false);
   const [grocerysItems,      setGrocerysItems]      = useState<GroceryItem[]>([]);
-
 
   const addGroceryItem = useCallback(async (
     item: Omit<GroceryItem, 'id' | 'createdBy' | 'timestamp | done'>,
@@ -608,15 +618,109 @@ const setDateItemCompleted = useCallback(async (id: string, completed: boolean):
     }
   }, []);
 
-  const toggleGroceryItem = useCallback(async (id: string, completed: boolean) => {
+  const setGroceryAmount = useCallback(async (id: string, amount: number) => {
     try {
       const docRef = doc(db, 'grocery', id);
-      await updateDoc(docRef, { completed });
+      await updateDoc(docRef, { amount });
       await fetchGroceryItems(); // Refresh list after update
     } catch (err) {
       console.error(err);
     }
   }, [fetchGroceryItems]);
+
+  const toggleGroceryAmountMode = useCallback(async (id: string) => {
+  try {
+    const docRef = doc(db, 'grocery', id);
+    
+    // 1. Pull the specific document
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const currentAmount = docSnap.data().amount || 0; // Fallback to 0 if undefined
+      
+      // 2. Check the value and determine the new one
+      // Example: If it's 1, set to 0. If it's 0, set to 1.
+      const newAmount = currentAmount === 0 ? 1 : 0;
+
+      // 3. Move onwards with the update
+      await updateDoc(docRef, { amount: newAmount });
+      
+      await fetchGroceryItems(); 
+    } else {
+      console.error("Document does not exist");
+    }
+  } catch (err) {
+    console.error("Error toggling amount:", err);
+  }
+}, [fetchGroceryItems]);
+
+  const toggleGroceryItemDone = useCallback(async (id: string, done: boolean) => {
+    try {
+      const docRef = doc(db, 'grocery', id);
+      await updateDoc(docRef, { done });
+      await fetchGroceryItems(); // Refresh list after update
+    } catch (err) {
+      console.error(err);
+    }
+  }, [fetchGroceryItems]);
+
+  const deleteGroceryItem = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      await deleteDoc(doc(db, 'grocery', id));
+      setDateItems((p) => p.filter((d) => d.id !== id));
+      fetchGroceryItems()
+      return true;
+    } catch (err) {
+      console.error('Error deleting date:', err); return false;
+    }
+  }, [fetchGroceryItems]);
+
+  // ── Recipes ─────────────────────────────────────────────────────
+
+  const [recipesLoading,   setRecipesLoading]   = useState(false);
+  const [recipeItems,      setRecipeItems]      = useState<RecipeItem[]>([]);
+
+  const fetchRecipeItems = useCallback(async () => {
+    try {
+      setRecipesLoading(true);
+      const snap = await getDocs(
+        query(collection(db, 'recepies'), orderBy('timestamp')),
+      );
+      // You should probably add a [groceries, setGroceries] state to your hook
+      setRecipeItems(snap.docs.map((d) => ({ id: d.id, ...d.data() } as GroceryItem)));
+    } catch (err) {
+      console.error('Error fetching groceries:', err);
+    } finally {
+      setRecipesLoading(false);
+    }
+  }, []);
+
+  const addRecipeItem = useCallback(async (
+    item: Omit<RecipeItem, 'id' | 'createdBy' | 'timestamp '>,
+  ): Promise<boolean> => {
+    if (!item.name.trim() || !currentUser) return false;
+    try {
+      await addDoc(collection(db, 'recepies'), {
+        ...item, createdBy: currentUser, timestamp: Timestamp.now(), completed: false,
+      });
+      fetchRecipeItems();
+      return true;
+    } catch (err) {
+      console.error('Error adding date:', err); return false;
+    }
+  }, [currentUser, fetchRecipeItems]);
+
+  const deleteRecipeItem = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      await deleteDoc(doc(db, 'recepies', id));
+      setDateItems((p) => p.filter((d) => d.id !== id));
+      fetchRecipeItems()
+      return true;
+    } catch (err) {
+      console.error('Error deleting date:', err); return false;
+    }
+  }, [fetchRecipeItems]);
+  
 
   // ─────────────────────────────────────────────────────────────────────────
   //  RETURN
@@ -668,5 +772,14 @@ const setDateItemCompleted = useCallback(async (id: string, completed: boolean):
     fetchGroceryItems,
     grocerysItems,
     setGrocerysItems,
+    toggleGroceryAmountMode,
+    setGroceryAmount,
+    deleteGroceryItem,
+    toggleGroceryItemDone,
+    recipesLoading,
+    recipeItems,
+    addRecipeItem,
+    deleteRecipeItem,
+    fetchRecipeItems,
   };
 }
