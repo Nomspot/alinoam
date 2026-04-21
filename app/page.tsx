@@ -146,6 +146,16 @@ const NAV_CARDS = [
     border: "rgba(200, 98, 122, 0.28)",
     grad:   "linear-gradient(135deg, rgba(200,98,122,0.12) 0%, rgba(120,60,200,0.08) 100%)",
   },
+  {
+    route: "/kitchen_home",
+    icon:  "🏡",
+    label: "בית ומטבח",
+    sub:   "דברים לבית",
+    accent: "#06b6d4",
+    glow:   "rgba(6, 182, 212, 0.18)",
+    border: "rgba(6, 182, 212, 0.25)",
+    grad:   "linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(245, 158, 11, 0.08) 100%)",
+  },
 ];
 
 // ─── Title letters stagger ──────────────────────────────────────────────────

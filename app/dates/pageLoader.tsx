@@ -13,6 +13,7 @@ import {
 } from "../components/FirebaseLogic";
 import ConfirmDialog from '../components/ConfirmDialog';
 import IsraelTime from "../components/IsraelTime";
+import confetti from 'canvas-confetti';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -140,7 +141,10 @@ export default function DatesPage() {
   const controls = useAnimation();
 
   const [editingDate, setEditingDate] = useState<(SeedDateItem & { id: string }) | null>(null);
-const [editForm, setEditForm] = useState({ title: "", emoji: "", category: "", description: "" });
+  const [editForm, setEditForm] = useState({ title: "", emoji: "", category: "", description: "" });
+
+  const wheelContainerRef = useRef<HTMLDivElement>(null);
+  const resultsContainerRef = useRef<HTMLDivElement>(null);
 
   const [pendingDeleteionDateID,       setPendingDeleteionDateID]       = useState("");
   const [pendingDeleteionDateName,     setPendingDeleteionDateName]     = useState("");
@@ -203,8 +207,43 @@ const [editForm, setEditForm] = useState({ title: "", emoji: "", category: "", d
 
   // ── Spin ──────────────────────────────────────────────────────────────────
 
+  const triggerWinnerConfetti = () => {
+    const commonConfig = {
+      particleCount: 40,
+      spread: 60,
+      velocity: 45,
+      ticks: 200,
+      gravity: 1.2,
+      drift: 0.5,
+      colors: ['#FFD700', '#FFFFFF', '#FF0000']
+    };
+
+    confetti({
+      ...commonConfig,
+      angle: 60,
+      origin: { x: 0, y: 1 }
+    });
+
+    confetti({
+      ...commonConfig,
+      angle: 120,
+      origin: { x: 1, y: 1 }
+    });
+
+    confetti({
+      ...commonConfig,
+      particleCount: 80,
+      startVelocity: 30,
+      gravity: 0.5,
+      angle: -90,
+      spread: 180,
+      origin: { x: 0.5, y: -0.1 }
+    });
+  };
+
   const spin = useCallback(async () => {
     if (spinning || spinDates.length < 2) return;
+
     setCompleted(false);
     setSpinning(true);
     setShowResult(false);
@@ -214,11 +253,32 @@ const [editForm, setEditForm] = useState({ title: "", emoji: "", category: "", d
     const finalGlobalIdx = 10 * spinDates.length + targetIdx;
     const finalY         = ITEM_H * (1 - finalGlobalIdx);
 
+    setTimeout(() => {
+      if (wheelContainerRef.current) {
+        const elementTop = wheelContainerRef.current.getBoundingClientRect().top + window.scrollY;
+        const offset = window.innerHeight * 0.3;
+        window.scrollTo({
+          top: elementTop - offset,
+          behavior: 'smooth'
+        });
+      }
+    }, 10);
+
     await controls.set({ y:0 });
     await controls.start({ y:finalY, transition:{ duration:4.5, ease:[0.45,0.05,0.2,1.15] } });
-
-    setSelectedDate(spinDates[targetIdx]);
-    setShowResult(true);
+    
+    setTimeout(() => {
+      setSelectedDate(spinDates[targetIdx]);
+      setShowResult(true);
+    }, 50);
+    setTimeout(() => {
+      triggerWinnerConfetti();
+      resultsContainerRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        inline: 'nearest'
+      });
+    }, 200);
+    
     setSpinning(false);
   }, [spinning, spinDates, controls]);
 
@@ -432,7 +492,9 @@ const [editForm, setEditForm] = useState({ title: "", emoji: "", category: "", d
 
             {/* ════ SPIN TAB ════ */}
             {tab === "spin" && (
-              <motion.div key="spin"
+              <motion.div 
+                key="spin"
+                ref={wheelContainerRef}
                 initial={{ opacity:0, x:-18 }} animate={{ opacity:1, x:0 }}
                 exit={{ opacity:0, x:18 }} transition={{ duration:0.28 }}>
 
@@ -515,6 +577,7 @@ const [editForm, setEditForm] = useState({ title: "", emoji: "", category: "", d
                 <AnimatePresence>
                   {showResult && selectedDate && (
                     <motion.div
+                      ref={resultsContainerRef}
                       initial={{ opacity:0, scale:0.86, y:22 }}
                       animate={{ opacity:1, scale:1, y:0 }}
                       exit={{ opacity:0, scale:0.9, y:-10 }}
