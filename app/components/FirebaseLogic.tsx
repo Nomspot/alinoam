@@ -731,7 +731,7 @@ const setDateItemCompleted = useCallback(async (id: string, completed: boolean):
   const deleteRecipeItem = useCallback(async (id: string): Promise<boolean> => {
     try {
       await deleteDoc(doc(db, 'recepies', id));
-      setMovieItems((p) => p.filter((d) => d.id !== id));
+      setRecipeItems((p) => p.filter((d) => d.id !== id));
       return true;
     } catch (err) {
       console.error('Error deleting date:', err); return false;

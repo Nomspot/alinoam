@@ -257,6 +257,27 @@ export default function KitchenHomePage() {
     r.name.toLowerCase().includes(recipeSearch.toLowerCase())
   );
 
+  const [expandedRecipes, setExpandedRecipes] = useState<Record<string, boolean>>({});
+
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopy = (recipe: any) => {
+    const content = recipe.link || recipe.description || '';
+    const text = `${recipe.name}\n${recipe.ingredients ? 'מצרכים: ' + recipe.ingredients : ''}\n${content}`;
+    
+    navigator.clipboard.writeText(text);
+    
+    // Trigger the "Copied" state
+    setCopiedId(recipe.id);
+    
+    // Reset it after 2 seconds
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const toggleExpand = (id: string) => {
+    setExpandedRecipes(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
   const ingredientResults = ingredientQuery.trim()
     ? recipeItems.filter(r =>
         ingredientQuery.split(',').map(s => s.trim().toLowerCase()).every(ing =>
@@ -701,70 +722,163 @@ export default function KitchenHomePage() {
 
                   {/* --- RECIPE LIST --- */}
                   <div style={{ display: 'grid', gap: 12 }}>
-                    {filteredRecipes.map(recipe => (
-                      <motion.div
-                        key={recipe.id}
-                        whileHover={{ scale: 1.01, x: -4 }}
-                        style={{
-                          position: 'relative',
-                          display: 'block',
-                          background: 'rgba(6, 182, 212, 0.1)',
-                          border: '1px solid rgba(6, 182, 212, 0.2)',
-                          padding: '16px 20px',
-                          borderRadius: 14
-                        }}
-                      >
-                        <motion.button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setPendingRecipeItem(recipe);
-                            setShowDeleteRecipeConfirmDialog(true);
-                          }}
-                          whileHover={{ scale: 1.1, backgroundColor: 'rgba(232, 112, 128, 0.2)', color: '#e87080' }}
-                          whileTap={{ scale: 0.9 }}
+                    {filteredRecipes.map(recipe => {
+                      const isExpanded = expandedRecipes[recipe.id];
+
+                      const descriptionLength = recipe.description?.length || 0;
+                      const isLongText = descriptionLength > 80;
+                      const hasExpandableContent = !recipe.link && isLongText;
+
+                      return (
+                        <motion.div
+                          key={recipe.id}
+                          layout // Smooth height transitions
+                          whileHover={{ scale: 1.03 }}
                           style={{
-                            position: 'absolute', top: 12, left: 12,
-                            background: 'rgba(255, 255, 255, 0.05)',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                            color: '#64748b', borderRadius: 8,
-                            width: 26, height: 26,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            cursor: 'pointer', fontSize: 14, transition: 'all 0.2s'
+                            position: 'relative',
+                            background: 'rgba(6, 182, 212, 0.06)',
+                            border: '1px solid rgba(6, 182, 212, 0.15)',
+                            padding: '16px 20px',
+                            borderRadius: 14,
+                            overflow: 'hidden',
                           }}
-                        >✕</motion.button>
+                        >
+                          {/* Delete Button (Top Left) */}
+                          <motion.button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPendingRecipeItem(recipe);
+                              setShowDeleteRecipeConfirmDialog(true);
+                            }}
+                            whileHover={{ scale: 1.1, backgroundColor: 'rgba(232, 112, 128, 0.2)', color: '#e87080' }}
+                            whileTap={{ scale: 0.9 }}
+                            style={{
+                              position: 'absolute', top: 12, left: 12,
+                              background: 'rgba(255, 255, 255, 0.05)',
+                              border: '1px solid rgba(255, 255, 255, 0.1)',
+                              color: '#64748b', borderRadius: 8,
+                              width: 26, height: 26,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              cursor: 'pointer', fontSize: 14, zIndex: 10
+                            }}
+                          >✕</motion.button>
 
-                        <div style={{ fontSize: 18, fontWeight: 500, color: '#f0e8d8', paddingLeft: 30 }}>
-                          {recipe.name}
-                        </div>
-
-                        {recipe.ingredients && (
-                          <div style={{ fontSize: 12, color: '#34d399', marginTop: 4 }}>
-                            🧺 {recipe.ingredients}
+                          {/* Title */}
+                          <div style={{ fontSize: 17, fontWeight: 600, color: '#f0e8d8', paddingLeft: 30, marginBottom: 4 }}>
+                            {recipe.name}
                           </div>
-                        )}
 
-                        {recipe.link ? (
-                            <a
-                              href={recipe.link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{ fontSize: 13, color: '#38bdf8', textDecoration: 'none', display: 'inline-block', marginTop: 4 }}
+                          {/* Collapsible Content Area */}
+                          <div style={{ 
+                            maxHeight: isExpanded ? '1000px' : '120px', 
+                            overflow: 'hidden', 
+                            transition: 'max-height 0.4s ease-in-out',
+                            position: 'relative'
+                          }}>
+                            {recipe.ingredients && (
+                              <div style={{ fontSize: 12, color: '#34d399', marginTop: 4 }}>
+                                🧺 {recipe.ingredients}
+                              </div>
+                            )}
+
+                            {recipe.link ? (
+                              <a
+                                href={recipe.link.startsWith('http') ? recipe.link : `https://${recipe.link}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ fontSize: 13, color: '#38bdf8', textDecoration: 'none', display: 'inline-block', marginTop: 8 }}
+                              >
+                                🔗 {recipe.link}
+                              </a>
+                            ) : (
+                              <div style={{ fontSize: 14, color: '#94a3b8', marginTop: 8, whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
+                                {recipe.description}
+                              </div>
+                            )}
+                            
+                            {/* Fade effect when collapsed */}
+                            {hasExpandableContent && !isExpanded && (
+                              <div style={{
+                                position: 'absolute', bottom: 0, left: 0, right: 0,
+                                height: 30, background: 'linear-gradient(to top, rgba(12, 20, 35, 0.9), transparent)',
+                                pointerEvents: 'none'
+                              }} />
+                            )}
+                          </div>
+
+                          {/* Footer Actions */}
+                          <div style={{ 
+                            display: 'flex', 
+                            // If there is an arrow, space them out. If not, push the Copy button to the left.
+                            justifyContent: hasExpandableContent ? 'space-between' : 'flex-end', 
+                            alignItems: 'center', 
+                            marginTop: 12 
+                          }}>
+                            {/* 1. Arrow (Right side in RTL) */}
+                            {hasExpandableContent && (
+                              <motion.button
+                                animate={{ rotate: isExpanded ? 180 : 0 }}
+                                whileHover={{ scale: 1.2 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => toggleExpand(recipe.id)}
+                                style={{
+                                  background: 'rgba(255,255,255,0.05)',
+                                  border: 'none', color: '#06b6d4',
+                                  width: 28, height: 28, borderRadius: '50%',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ▼
+                              </motion.button>
+                            )}
+
+                            {/* 2. Copy Button (Left side in RTL) */}
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => handleCopy(recipe)}
+                              style={{ 
+                                background: 'none', 
+                                border: 'none', 
+                                color: copiedId === recipe.id ? '#34d399' : '#64748b', // Switch to green when copied
+                                fontSize: 13, 
+                                cursor: 'pointer', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: 6,
+                                transition: 'color 0.3s ease'
+                              }}
                             >
-                              לחץ לצפייה במתכון ({recipe.link}) 🔗
-                            </a>
-                          ) : (
-                          <div style={{ fontSize: 14, color: '#94a3b8', marginTop: 6, whiteSpace: 'pre-wrap' }}>
-                            {recipe.description}
+                              <AnimatePresence mode="wait">
+                                {copiedId === recipe.id ? (
+                                  <motion.div
+                                    key="copied"
+                                    initial={{ opacity: 0, y: 5 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -5 }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                                  >
+                                    <span>הועתק ✓</span>
+                                  </motion.div>
+                                ) : (
+                                  <motion.div
+                                    key="copy"
+                                    initial={{ opacity: 0, y: 5 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -5 }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                                  >
+                                    <span>📋</span>
+                                    <span>העתק</span>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </motion.button>
                           </div>
-                        )}
-                      </motion.div>
-                    ))}
-
-                    {filteredRecipes.length === 0 && recipeSearch && (
-                      <div style={{ textAlign: 'center', color: '#475569', padding: '24px 0', fontSize: 14 }}>
-                        לא נמצאו מתכונים עם השם &ldquo;{recipeSearch}&rdquo;
-                      </div>
-                    )}
+                        </motion.div>
+                      );
+                    })}
                   </div>
                 </GlassCard>
 
