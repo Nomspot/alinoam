@@ -853,7 +853,7 @@ export default function KitchenHomePage() {
                                 )}
                                 {recipe.link ? (
                                   <a
-                                    href={recipe.link}
+                                    href={`https://${recipe.link}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     style={{ fontSize: 12, color: '#38bdf8', textDecoration: 'none', display: 'inline-block', marginTop: 4 }}
@@ -895,7 +895,7 @@ export default function KitchenHomePage() {
                     {movieSiteItems.map(site => (
                       <motion.a
                         key={site.id}
-                        href={site.url}
+                        href={`https://${site.url}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         whileHover={{ scale: 1.05, background: 'rgba(255,255,255,0.08)' }}
