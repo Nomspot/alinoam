@@ -204,32 +204,28 @@ const AnniversaryTracker = ({ startDate }: { startDate: Date | string }) => {
 // --- Page Content ---
 
 export default function MobileAchievementBlog() {
-  const heroRef = useRef(null);
-  const isHeroInView = useInView(heroRef, { amount: 0.5 });
-
+ const heroRef = useRef(null);
+  const isHeroInView = useInView(heroRef, { amount: 0.5, once: false });
   const router = useRouter();
-
   const { uploadMemory, fetchMemories, authLoading, currentUser } = useFirebaseLogic();
   const { hebrew_font } = useOptions();
-
-  const [logs, setLogs] = useState<Memory[]>([])
-
-  useEffect(() => {
-    const unsubscribe = fetchMemories((fetchedMemories) => {
-      setLogs(fetchedMemories);
-    });
-    
-    // Cleanup: Stop listening if the user leaves the page
-    return () => unsubscribe();
-  }, [fetchMemories]);
-
-  const handleAddNewLog = async (newMemory: Memory) => {
-    setLogs((prevMemories) => [newMemory, ...prevMemories]);
-  };
-
+  const [logs, setLogs] = useState<Memory[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNavOpen, setIsNavOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const unsubscribe = fetchMemories((fetchedMemories) => {
+      setLogs(fetchedMemories);
+    });
+    return () => unsubscribe();
+  }, [fetchMemories, currentUser]);
+
+  // 2. FUNCTIONS SECOND (Defined before early returns)
+  const handleAddNewLog = async (newMemory: Memory) => {
+    setLogs((prevMemories) => [newMemory, ...prevMemories]);
+  };
 
   const scrollTo = (id: string) => {
     const element = document.getElementById(id);
@@ -246,173 +242,173 @@ export default function MobileAchievementBlog() {
     }
   };
 
-  if (authLoading) {
-    return (
-      <div className={`flex items-center justify-center min-h-screen ${hebrew_font.className}`}
-        style={{ background: '#040d08' }}
-        dir="rtl">
-        <motion.p
-          animate={{ opacity: [0.3,1,0.3] }}
-          transition={{ duration: 1.8, repeat: Infinity }}
-          style={{ color: '#34d399', fontSize: 18, letterSpacing: '0.12em' }}
-        >
-          טוען...
-        </motion.p>
-      </div>
-    );
-  }
-
-  if (!currentUser) {
-    return (
-      <div className={`flex items-center justify-center min-h-screen ${hebrew_font.className}`}
-        style={{ background: '#040d08' }}>
-        <p style={{ color: '#f0e8d8', fontSize: 18 }}>יש להתחבר כדי לצפות ולנהל הוצאות.</p>
-      </div>
-    );
-  }
-
   return (
     <main 
       ref={containerRef}
+      style={{
+        msOverflowStyle: 'none',  // IE and Edge
+        scrollbarWidth: 'none',   // Firefox
+      }}
       className="relative bg-[#0a0a09] text-white overflow-y-auto h-screen snap-y snap-mandatory scroll-smooth"
       dir="rtl"
     >
-      <StarField />
-      <Orbs />
-      <GrainOverlay />
-
-      {/* Fixed Home Button */}
-      <motion.button
-        onClick={() => router.push('/')}
-        className="fixed top-6 right-6 z-50"
-        // 2. Animate based on the HERO section's visibility
-        initial={{ opacity: 0 }}
-        animate={{ 
-          opacity: isHeroInView ? 1 : 0,
-          pointerEvents: isHeroInView ? 'auto' : 'none' 
-        }}
-        transition={{ duration: 0.4 }}
-        style={{
-          background: 'rgba(255,255,255,0.06)', 
-          backdropFilter: 'blur(12px)',
-          border: '1px solid rgba(255,255,255,0.1)', 
-          borderRadius: 16, 
-          padding: 14,
-        }}
-      >
-        <Image className="invert" src="/home_icon.svg" width="26" height="26" alt="Back" />
-      </motion.button>
-      {/* Scroll to Top Button */}
-      <AnimatePresence>
-        {!isHeroInView && ( // Only show when HERO is gone
-          <motion.button
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            onClick={scrollToTop}
-            className="fixed top-6 left-6 z-50 bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-2xl text-amber-500"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            <ArrowUp size={24} />
-          </motion.button>
-        )}
-      </AnimatePresence>
-
-      {/* Hero Section */}
-      <section 
-        ref={heroRef}
-        id="hero" 
-        className="h-screen snap-start snap-always flex flex-col items-center justify-center p-6 text-center relative z-10"
-      >
-        <StaggeredTitle text="הרגעים שלנו" />
-        <div className="mt-12">
-          <AnniversaryTracker startDate={new Date("2024-04-18")} />
+      {/* 1. AUTH OVERLAYS (Conditional content, not conditional return) */}
+      {authLoading && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#040d08]">
+           <motion.p 
+             animate={{ opacity: [0.3, 1, 0.3] }} 
+             transition={{ duration: 1.8, repeat: Infinity }}
+             className="text-[#916541] text-[18px]">
+             טוען...
+           </motion.p>
         </div>
-        <motion.div animate={{ y: [0, 10, 0] }} transition={{ repeat: Infinity, duration: 2 }} className="absolute bottom-12">
-          <p className="text-amber-500/40 uppercase text-[10px] tracking-[0.4em]">החלק למעלה</p>
-        </motion.div>
-      </section>
+      )}
 
-      {/* Achievement Sections */}
-      {logs.map((log, index) => (
-        <section 
-          id={log.id} 
-          key={log.id} 
-          className="h-screen snap-start snap-always flex items-center justify-center p-4 md:p-12 relative z-10"
+      {!authLoading && !currentUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#040d08]">
+           <p className="text-[#f0e8d8] text-[18px]">יש להתחבר כדי לצפות ולנהל הוצאות.</p>
+        </div>
+      )}
+
+      {/* 2. THE ACTUAL CONTENT (Always rendered, but hidden until ready) */}
+      <div className={(authLoading || !currentUser) ? "invisible" : "visible"}>
+        <StarField />
+        <Orbs />
+        <GrainOverlay />
+
+        {/* Fixed Home Button */}
+        <motion.button
+          onClick={() => router.push('/')}
+          className="fixed top-6 right-6 z-50"
+          // 2. Animate based on the HERO section's visibility
+          initial={{ opacity: 0 }}
+          animate={{ 
+            opacity: isHeroInView ? 1 : 0,
+            pointerEvents: isHeroInView ? 'auto' : 'none' 
+          }}
+          transition={{ duration: 0.4 }}
+          style={{
+            background: 'rgba(255,255,255,0.06)', 
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255,255,255,0.1)', 
+            borderRadius: 16, 
+            padding: 14,
+          }}
         >
-          <FullscreenLog log={log} index={index} />
+          <Image className="invert" src="/home_icon.svg" width="26" height="26" alt="Back" />
+        </motion.button>
+        {/* Scroll to Top Button */}
+        <AnimatePresence>
+          {!isHeroInView && ( // Only show when HERO is gone
+            <motion.button
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              onClick={scrollToTop}
+              className="fixed top-6 left-6 z-50 bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-2xl text-amber-500"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+            >
+              <ArrowUp size={24} />
+            </motion.button>
+          )}
+        </AnimatePresence>
+
+        {/* Hero Section */}
+        <section 
+          ref={heroRef}
+          id="hero" 
+          className="h-screen snap-start snap-always flex flex-col items-center justify-center p-6 text-center relative z-10"
+        >
+          <StaggeredTitle text="הרגעים שלנו" />
+          <div className="mt-12">
+            <AnniversaryTracker startDate={new Date("2024-04-18")} />
+          </div>
+          <motion.div animate={{ y: [0, 10, 0] }} transition={{ repeat: Infinity, duration: 2 }} className="absolute bottom-12">
+            <p className="text-amber-500/40 uppercase text-[10px] tracking-[0.4em]">החלק למעלה</p>
+          </motion.div>
         </section>
-      ))}
 
-      <section className="h-screen snap-start snap-always flex items-center justify-center relative z-10">
-        <TheStoryContinues />
-      </section>
-
-      {/* Controls */}
-      <AnimatePresence>
-        {isHeroInView && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 z-50"
+        {/* Achievement Sections */}
+        {logs.map((log, index) => (
+          <section 
+            id={log.id} 
+            key={log.id} 
+            className="h-screen snap-start snap-always flex items-center justify-center p-4 md:p-12 relative z-10"
           >
-            <button 
-              onClick={() => setIsNavOpen(true)}
-              className="bg-black/60 backdrop-blur-lg border border-white/10 text-amber-500 px-5 py-3 rounded-full flex items-center gap-2 shadow-2xl active:scale-90 transition-transform"
-            >
-              <Navigation size={18} />
-              <span className="text-xs font-bold uppercase tracking-widest">קפוץ ל..</span>
-            </button>
-            
-            <button 
-              onClick={() => setIsModalOpen(true)}
-              className="bg-amber-500 text-black p-4 rounded-full shadow-2xl active:scale-90 transition-transform"
-            >
-              <Plus size={24} />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <FullscreenLog log={log} index={index} />
+          </section>
+        ))}
 
-      {/* Quick Nav Drawer */}
-      <AnimatePresence>
-        {isNavOpen && (
-          <motion.div 
-            initial={{ opacity: 0, y: 100 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 100 }}
-            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-2xl p-8 flex flex-col justify-center"
-          >
-            <button onClick={() => setIsNavOpen(false)} className="absolute top-8 right-8 text-amber-500"><X size={32}/></button>
-            <p className="text-amber-500/50 text-xs font-bold uppercase tracking-widest mb-8">קפוץ לזיכרון</p>
-            <nav className="flex flex-col gap-6 ">
-              <button onClick={() => scrollTo('hero')} className="text-center text-2xl font-serif text-white/80 hover:text-amber-500 transition-colors">♥ הרגעים שלנו ♥</button>
-              {logs.map((log, i) => (
-                <button 
-                  key={log.id} 
-                  onClick={() => scrollTo(log.id)}
-                  className="text-right group flex items-center justify-between"
-                >
-                  <span className="text-2xl md:text-5xl font-serif font-bold text-amber-50/70 group-hover:text-amber-500 transition-colors">
-                    {String(i + 1).padStart(2, '0')}. {log.title}
-                  </span>
-                  <ChevronRight className="text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </button>
-              ))}
-            </nav>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        <section className="h-screen snap-start snap-always flex items-center justify-center relative z-10">
+          <TheStoryContinues />
+        </section>
 
-      {/* Modals */}
-      <AnimatePresence>
-        {isModalOpen &&
-          <AddLogModal 
-            onClose={() => setIsModalOpen(false)} 
-            onAdd={handleAddNewLog}
-            uploadMemory={uploadMemory}
-        />}
-      </AnimatePresence>
+        {/* Controls */}
+        <AnimatePresence>
+          {isHeroInView && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 z-50"
+            >
+              <button 
+                onClick={() => setIsNavOpen(true)}
+                className="bg-black/60 backdrop-blur-lg border border-white/10 text-amber-500 px-5 py-3 rounded-full flex items-center gap-2 shadow-2xl active:scale-90 transition-transform"
+              >
+                <Navigation size={18} />
+                <span className="text-xs font-bold uppercase tracking-widest">קפוץ ל..</span>
+              </button>
+              
+              <button 
+                onClick={() => setIsModalOpen(true)}
+                className="bg-amber-500 text-black p-4 rounded-full shadow-2xl active:scale-90 transition-transform"
+              >
+                <Plus size={24} />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Quick Nav Drawer */}
+        <AnimatePresence>
+          {isNavOpen && (
+            <motion.div 
+              initial={{ opacity: 0, y: 100 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 100 }}
+              className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-2xl p-8 flex flex-col justify-center"
+            >
+              <button onClick={() => setIsNavOpen(false)} className="absolute top-8 right-8 text-amber-500"><X size={32}/></button>
+              <p className="text-amber-500/50 text-xs font-bold uppercase tracking-widest mb-8">קפוץ לזיכרון</p>
+              <nav className="flex flex-col gap-6 ">
+                <button onClick={() => scrollTo('hero')} className="text-center text-2xl font-serif text-white/80 hover:text-amber-500 transition-colors">♥ הרגעים שלנו ♥</button>
+                {logs.map((log, i) => (
+                  <button 
+                    key={log.id} 
+                    onClick={() => scrollTo(log.id)}
+                    className="text-right group flex items-center justify-between"
+                  >
+                    <span className="text-2xl md:text-5xl font-serif font-bold text-amber-50/70 group-hover:text-amber-500 transition-colors">
+                      {String(i + 1).padStart(2, '0')}. {log.title}
+                    </span>
+                    <ChevronRight className="text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </button>
+                ))}
+              </nav>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Modals */}
+        <AnimatePresence>
+          {isModalOpen &&
+            <AddLogModal 
+              onClose={() => setIsModalOpen(false)} 
+              onAdd={handleAddNewLog}
+              uploadMemory={uploadMemory}
+          />}
+        </AnimatePresence>
+      </div>
     </main>
   );
 }
