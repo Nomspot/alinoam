@@ -283,6 +283,24 @@ export default function MobileAchievementBlog() {
         <TheStoryContinues />
       </section>
 
+      {/* Controls */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 z-50">
+        <button 
+          onClick={() => setIsNavOpen(true)}
+          className="bg-black/60 backdrop-blur-lg border border-white/10 text-amber-500 px-5 py-3 rounded-full flex items-center gap-2 shadow-2xl active:scale-90 transition-transform"
+        >
+          <Navigation size={18} />
+          <span className="text-xs font-bold uppercase tracking-widest">קפוץ ל..</span>
+        </button>
+        
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="bg-amber-500 text-black p-4 rounded-full shadow-2xl active:scale-90 transition-transform"
+        >
+          <Plus size={24} />
+        </button>
+      </div>
+
       {/* Quick Nav Drawer */}
       <AnimatePresence>
         {isNavOpen && (
