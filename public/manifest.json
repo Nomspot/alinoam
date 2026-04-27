@@ -1,0 +1,7 @@
+{
+  "name": "Alinoam",
+  "short_name": "Alinoam",
+  "start_url": "/", 
+  "display": "standalone",
+  "scope": "/"
+}

@@ -16,6 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ALINOAM",
   description: "נוצר על ידי נעם גרינברג",
+  manifest: "/manifest.json",
 
   icons: {
     icon: '/moon.png',
