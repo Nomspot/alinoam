@@ -771,6 +771,7 @@ export default function KitchenHomePage() {
                             border: '1px solid rgba(6, 182, 212, 0.15)',
                             padding: '16px 20px',
                             borderRadius: 14,
+                            zIndex: 15,
                             overflow: 'hidden',
                           }}
                         >
@@ -801,7 +802,9 @@ export default function KitchenHomePage() {
 
                           {/* Collapsible Content Area */}
                           <div style={{ 
-                              maxHeight: isExpanded ? '1000px' : '120px', 
+                              display: 'grid',
+                              gridTemplateRows: isExpanded ? '1fr' : '0fr',
+                              maxHeight: isExpanded ? 'none' : '120px', 
                               overflow: 'hidden', 
                               transition: 'max-height 0.4s ease-in-out',
                               position: 'relative',
@@ -858,16 +861,19 @@ export default function KitchenHomePage() {
                                 animate={{ rotate: isExpanded ? 180 : 0 }}
                                 whileHover={{ scale: 1.2 }}
                                 whileTap={{ scale: 0.9 }}
+                                onPointerDown={(e) => e.stopPropagation()}
                                 onClick={(e) => {
+                                  e.preventDefault();
                                   e.stopPropagation();
                                   toggleExpand(recipe.id);
                                 }}
                                 style={{
+                                  padding: '20px', margin: '-10px',
                                   background: 'rgba(255,255,255,0.05)',
                                   border: 'none', color: '#06b6d4',
                                   width: 28, height: 28, borderRadius: '50%',
                                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                  cursor: 'pointer'
+                                  cursor: 'pointer', zIndex: 20
                                 }}
                               >
                                 ▼
