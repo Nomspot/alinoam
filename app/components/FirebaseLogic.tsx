@@ -187,61 +187,69 @@ export function useFirebaseLogic() {
     if (!currentUser || !fixedExpensesLoaded) return;
 
     const checkAndArchive = async () => {
-      const currentMonth = new Date().toLocaleString('he-IL', {
-        year: 'numeric', month: 'long',
-      });
-      try {
-        const metaSnap = await getDocs(query(collection(db, 'archive_metadata')));
+    const currentMonth = new Date().toLocaleString('he-IL', {
+      year: 'numeric', month: 'long',
+    });
 
-        if (metaSnap.empty) {
-          await setDoc(
-            doc(collection(db, 'archive_metadata'), 'current'),
-            { lastArchivedMonth: currentMonth },
-            { merge: true },
-          );
-          return;
-        }
+    // ✅ Calculate ONCE up here, used in both blocks below
+    const lastMonthDate = new Date();
+    lastMonthDate.setDate(0); // → last day of previous month
+    const archivedMonthTimestamp = Timestamp.fromDate(lastMonthDate);
+    const lastMonthStr = lastMonthDate.toLocaleString('he-IL', { year: 'numeric', month: 'long' });
 
-        const lastArchived = metaSnap.docs[0].data().lastArchivedMonth ?? '';
-        if (lastArchived === currentMonth) return;
+    try {
+      const metaSnap = await getDocs(query(collection(db, 'archive_metadata')));
 
-        const snap = await getDocs(
-          query(collection(db, 'products'), orderBy('timestamp', 'desc')),
+      if (metaSnap.empty) {
+        await setDoc(
+          doc(collection(db, 'archive_metadata'), 'current'),
+          { lastArchivedMonth: lastMonthStr }, // ← uses lastMonthStr, not currentMonth
+          { merge: true },
         );
-
-        if (snap.size > 0) {
-          const batch = writeBatch(db);
-          snap.forEach((pd) => {
-            const d = pd.data();
-            batch.set(doc(collection(db, 'past_products')), {
-              product: d.product, price: d.price,
-              createdBy: d.createdBy, timestamp: d.timestamp,
-              archivedDate: Timestamp.now(),
-            });
-            batch.delete(doc(db, 'products', pd.id));
-          });
-          fixedExpenses.forEach((exp) => {
-            if (exp.isActive) {
-              batch.set(doc(collection(db, 'past_products')), {
-                product: `[הוצאה קבועה] ${exp.name}`,
-                price: exp.amount, createdBy: exp.createdBy,
-                timestamp: Timestamp.now(), archivedDate: Timestamp.now(),
-                isFixedExpense: true,
-              });
-            }
-          });
-          batch.set(
-            doc(collection(db, 'archive_metadata'), 'current'),
-            { lastArchivedMonth: currentMonth },
-            { merge: true },
-          );
-          await batch.commit();
-          setProducts([]);
-        }
-      } catch (err) {
-        console.error('Error auto-archiving:', err);
+        return;
       }
-    };
+
+      const lastArchived = metaSnap.docs[0].data().lastArchivedMonth ?? '';
+      if (lastArchived === currentMonth) return;
+
+      const snap = await getDocs(
+        query(collection(db, 'products'), orderBy('timestamp', 'desc')),
+      );
+
+      if (snap.size > 0) {
+        const batch = writeBatch(db);
+        snap.forEach((pd) => {
+          const d = pd.data();
+          batch.set(doc(collection(db, 'past_products')), {
+            product: d.product, price: d.price,
+            createdBy: d.createdBy, timestamp: d.timestamp,
+            archivedDate: Timestamp.now(),
+          });
+          batch.delete(doc(db, 'products', pd.id));
+        });
+        fixedExpenses.forEach((exp) => {
+          if (exp.isActive) {
+            batch.set(doc(collection(db, 'past_products')), {
+              product: `[הוצאה קבועה] ${exp.name}`,
+              price: exp.amount, createdBy: exp.createdBy,
+              timestamp: archivedMonthTimestamp, // ✅ now in scope
+              archivedDate: Timestamp.now(),
+              isFixedExpense: true,
+            });
+          }
+        });
+        batch.set(
+          doc(collection(db, 'archive_metadata'), 'current'),
+          { lastArchivedMonth: currentMonth },
+          { merge: true },
+        );
+        await batch.commit();
+        setProducts([]);
+      }
+    } catch (err) {
+      console.error('Error auto-archiving:', err);
+    }
+  };
 
     checkAndArchive();
   }, [currentUser, fixedExpenses, fixedExpensesLoaded]);
@@ -291,18 +299,25 @@ export function useFirebaseLogic() {
 
   const fetchAvailableMonths = useCallback(async () => {
     try {
+      const currentMonth = new Date().toLocaleString('he-IL', {
+        year: 'numeric', month: 'long',
+      });
+
       const snap = await getDocs(collection(db, 'past_products'));
       const months = new Set<string>();
       snap.forEach((d) => {
         const raw = d.data();
         if (raw.timestamp) {
-          months.add(
-            new Date(raw.timestamp.toMillis()).toLocaleString('he-IL', {
-              year: 'numeric', month: 'long',
-            }),
-          );
+          const itemMonth = new Date(raw.timestamp.toMillis()).toLocaleString('he-IL', {
+            year: 'numeric', month: 'long',
+          });
+          // ✅ Never show the current month in the past tab
+          if (itemMonth !== currentMonth) {
+            months.add(itemMonth);
+          }
         }
       });
+
       const sorted = Array.from(months).sort().reverse();
       setAvailableMonths(sorted);
       if (sorted.length > 0 && !selectedMonth) {
