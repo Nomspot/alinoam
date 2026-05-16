@@ -164,7 +164,7 @@ export default function EmojiPicker({ value, onChange, color = "#5a4a6a" } : Emo
           cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center"
         }}
       >
-        {value || "🔥"}
+        {value || ""}
       </motion.button>
 
       {/* Render the panel into the body so it's never cut off */}
