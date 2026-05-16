@@ -115,6 +115,28 @@ export interface MemoryItem {
   createdBy: string;
   timestamp?: Timestamp;
 }
+ 
+export interface IntimacyItem {
+  id: string;
+  title: string;
+  description?: string;
+  emoji?: string;
+  category: string;        // references IntimacyCategory.id
+  createdBy: string;
+  timestamp?: Timestamp;
+  completed?: boolean;
+}
+ 
+export interface IntimacyCategory {
+  id: string;
+  label: string;
+  color: string;
+  emoji?: string;
+  createdBy?: string;
+}
+ 
+export type SeedIntimacyCategory = { id: string } & Omit<IntimacyCategory, 'id' | 'createdBy'>;
+
 
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -994,6 +1016,189 @@ const setDateItemCompleted = useCallback(async (id: string, completed: boolean):
     }
   };
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // INTIMACY PAGE
+  // ─────────────────────────────────────────────────────────────────────────────
+ 
+  const [intimacyItems,          setIntimacyItems]          = useState<IntimacyItem[]>([]);
+  const [activatedIntimacyItems, setActivatedIntimacyItems] = useState<IntimacyItem[]>([]);
+  const [intimacyCategories,     setIntimacyCategories]     = useState<IntimacyCategory[]>([]);
+  const [intimacyLoading,        setIntimacyLoading]        = useState(false);
+  
+  
+  // ─── 3. Fetchers — add inside useFirebaseLogic() ─────────────────────────────
+  
+  const fetchIntimacyItems = useCallback(async () => {
+    try {
+      setIntimacyLoading(true);
+      const snap = await getDocs(
+        query(collection(db, 'intimacy_items'), orderBy('timestamp', 'desc'))
+      );
+      setIntimacyItems(snap.docs.map(d => ({ id: d.id, ...d.data() } as IntimacyItem)));
+    } catch (err) {
+      console.error('Error fetching intimacy items:', err);
+    } finally {
+      setIntimacyLoading(false);
+    }
+  }, []);
+  
+  const fetchActivatedIntimacyItems = useCallback(async () => {
+    try {
+      const snap = await getDocs(
+        query(
+          collection(db, 'intimacy_items'),
+          where('completed', '==', false),
+          orderBy('timestamp', 'desc')
+        )
+      );
+      setActivatedIntimacyItems(snap.docs.map(d => ({ id: d.id, ...d.data() } as IntimacyItem)));
+    } catch (err) {
+      console.error('Error fetching active intimacy items:', err);
+    }
+  }, []);
+  
+  const fetchIntimacyCategories = useCallback(async () => {
+    try {
+      const snap = await getDocs(collection(db, 'intimacy_categories'));
+      setIntimacyCategories(snap.docs.map(d => ({ id: d.id, ...d.data() } as IntimacyCategory)));
+    } catch (err) {
+      console.error('Error fetching intimacy categories:', err);
+    }
+  }, []);
+  
+  
+  // ─── 4. Seed — add inside useFirebaseLogic() ─────────────────────────────────
+  // Call this from the page once after auth resolves, passing DEFAULT_INTIMACY_CATEGORIES.
+  // It only writes to Firestore if the collections are empty.
+  
+  const seedIntimacyIfEmpty = useCallback(async (
+    defaultCategories: SeedIntimacyCategory[],
+    defaultItems: Array<Omit<IntimacyItem, 'id' | 'createdBy' | 'timestamp'>> = [],
+  ) => {
+    setIntimacyLoading(true);
+    try {
+      const [itemsSnap, catsSnap] = await Promise.all([
+        getDocs(collection(db, 'intimacy_items')),
+        getDocs(collection(db, 'intimacy_categories')),
+      ]);
+  
+      const batch = writeBatch(db);
+      let dirty = false;
+  
+      // Seed categories with stable doc IDs (idempotent)
+      if (catsSnap.empty) {
+        defaultCategories.forEach(({ id, ...rest }) => {
+          batch.set(doc(db, 'intimacy_categories', id), { ...rest, createdBy: 'system' });
+        });
+        dirty = true;
+      }
+  
+      // Seed items only if collection is empty
+      if (itemsSnap.empty && defaultItems.length > 0) {
+        defaultItems.forEach(item => {
+          batch.set(doc(collection(db, 'intimacy_items')), {
+            ...item, createdBy: 'system',
+            timestamp: Timestamp.now(),
+            completed: false,
+          });
+        });
+        dirty = true;
+      }
+  
+      if (dirty) await batch.commit();
+    } catch (err) {
+      console.error('Error seeding intimacy:', err);
+    } finally {
+      await Promise.all([
+        fetchIntimacyItems(),
+        fetchIntimacyCategories(),
+        fetchActivatedIntimacyItems(),
+      ]);
+    }
+  }, [fetchIntimacyItems, fetchIntimacyCategories, fetchActivatedIntimacyItems]);
+  
+  
+  // ─── 5. Mutations — add inside useFirebaseLogic() ────────────────────────────
+  
+  const addIntimacyItem = useCallback(async (
+    item: Omit<IntimacyItem, 'id' | 'createdBy' | 'timestamp'>,
+  ): Promise<boolean> => {
+    if (!item.title.trim() || !currentUser) return false;
+    try {
+      await addDoc(collection(db, 'intimacy_items'), {
+        ...item, createdBy: currentUser, timestamp: Timestamp.now(), completed: false,
+      });
+      await fetchIntimacyItems();
+      await fetchActivatedIntimacyItems();
+      return true;
+    } catch (err) {
+      console.error('Error adding intimacy item:', err); return false;
+    }
+  }, [currentUser, fetchIntimacyItems, fetchActivatedIntimacyItems]);
+  
+  const deleteIntimacyItem = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      await deleteDoc(doc(db, 'intimacy_items', id));
+      setIntimacyItems(p => p.filter(d => d.id !== id));
+      await fetchActivatedIntimacyItems();
+      return true;
+    } catch (err) {
+      console.error('Error deleting intimacy item:', err); return false;
+    }
+  }, [fetchActivatedIntimacyItems]);
+  
+  const updateIntimacyItem = useCallback(async (
+    id: string,
+    data: Partial<Omit<IntimacyItem, 'id' | 'createdBy' | 'timestamp'>>,
+  ): Promise<boolean> => {
+    try {
+      await updateDoc(doc(db, 'intimacy_items', id), data);
+      await fetchIntimacyItems();
+      return true;
+    } catch (err) {
+      console.error('Error updating intimacy item:', err); return false;
+    }
+  }, [fetchIntimacyItems]);
+  
+  const setIntimacyItemCompleted = useCallback(async (
+    id: string, completed: boolean,
+  ): Promise<boolean> => {
+    try {
+      await updateDoc(doc(db, 'intimacy_items', id), { completed });
+      setIntimacyItems(prev =>
+        prev.map(item => item.id === id ? { ...item, completed } : item)
+      );
+      await fetchActivatedIntimacyItems();
+      return true;
+    } catch (err) {
+      console.error('Error setting intimacy completed:', err); return false;
+    }
+  }, [fetchActivatedIntimacyItems]);
+  
+  const addIntimacyCategory = useCallback(async (
+    cat: Omit<IntimacyCategory, 'id' | 'createdBy'>,
+  ): Promise<boolean> => {
+    if (!cat.label.trim() || !currentUser) return false;
+    try {
+      await addDoc(collection(db, 'intimacy_categories'), { ...cat, createdBy: currentUser });
+      await fetchIntimacyCategories();
+      return true;
+    } catch (err) {
+      console.error('Error adding intimacy category:', err); return false;
+    }
+  }, [currentUser, fetchIntimacyCategories]);
+  
+  const deleteIntimacyCategory = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      await deleteDoc(doc(db, 'intimacy_categories', id));
+      setIntimacyCategories(p => p.filter(c => c.id !== id));
+      return true;
+    } catch (err) {
+      console.error('Error deleting intimacy category:', err); return false;
+    }
+  }, []);
+
+
   // ─────────────────────────────────────────────────────────────────────────
   //  RETURN
   // ─────────────────────────────────────────────────────────────────────────
@@ -1070,5 +1275,18 @@ const setDateItemCompleted = useCallback(async (id: string, completed: boolean):
     fetchMemories,
     deleteMemory,
     updateMemory,
+
+    // ── Intimacy page ──
+    intimacyItems,
+    activatedIntimacyItems,
+    intimacyCategories,
+    intimacyLoading,
+    seedIntimacyIfEmpty,
+    addIntimacyItem,
+    deleteIntimacyItem,
+    updateIntimacyItem,
+    setIntimacyItemCompleted,
+    addIntimacyCategory,
+    deleteIntimacyCategory,
   };
 }

@@ -36,13 +36,13 @@ export default function ConfirmDialog({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="fixed inset-0 bg-[#03060a]/70 backdrop-blur-md z-[110]"
+            className="fixed inset-0 bg-[#03060a]/70 backdrop-blur-md z-[210]"
             onClick={onCancel}
           />
 
           {/* Modal Container */}
           <div 
-            className={`fixed inset-0 flex items-center justify-center z-[120] pointer-events-none p-4 ${hebrew_font.className}`}
+            className={`fixed inset-0 flex items-center justify-center z-[220] pointer-events-none p-4 ${hebrew_font.className}`}
             dir="rtl"
           >
             <motion.div

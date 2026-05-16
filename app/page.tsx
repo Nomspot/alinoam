@@ -166,6 +166,16 @@ const NAV_CARDS = [
     border: "rgba(245, 158, 11, 0.25)",
     grad:   "linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(251, 191, 36, 0.08) 100%)",
   },
+    {
+    route: "/intimacy",
+    icon:  "🫦",
+    label: "למיטה",
+    sub:   "סקס וכל השאר...",
+    accent: "#c0392b",
+    glow:   "rgba(232, 40, 40, 0.22)",
+    border: "rgba(232, 40, 40, 0.28)",
+    grad:   "linear-gradient(135deg, rgba(232,40,40,0.12) 0%, rgba(184,40,70,0.08) 100%)",
+  },
 ];
 
 // ─── Title letters stagger ──────────────────────────────────────────────────

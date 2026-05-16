@@ -2,13 +2,181 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { createPortal } from "react-dom"; // Import Portal
 
-// ── Emoji data ────────────────────────────────────────────────────────────────
+interface EmojiPickerProps {
+  value: string;
+  onChange: (emoji: string) => void;
+  color?: string;
+}
+
+export default function EmojiPicker({ value, onChange, color = "#5a4a6a" } : EmojiPickerProps) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [tab, setTab] = useState(Object.keys(EMOJI_CATEGORIES)[0]);
+  
+  // Ref for the trigger button to calculate position
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+
+  // Update position when opening
+  const toggleOpen = () => {
+    if (!open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      // Calculate position relative to viewport
+      setCoords({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    }
+    setOpen(!open);
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (open && 
+          panelRef.current && !panelRef.current.contains(e.target as Node) &&
+          triggerRef.current && !triggerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const displayEmojis = useMemo(() => {
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      return ALL_EMOJIS.filter(e => (EMOJI_NAMES as any)[e]?.includes(q));
+    }
+    return (EMOJI_CATEGORIES as any)[tab]?.emojis ?? [];
+  }, [search, tab]);
+
+  const pick = (emoji: string) => {
+    onChange(emoji);
+    setOpen(false);
+    setSearch("");
+  };
+
+  // ── Portal Content ──
+  const pickerPanel = (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          ref={panelRef}
+          initial={{ opacity: 0, y: -8, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -8, scale: 0.95 }}
+          style={{
+            position: "fixed", // Use fixed to stay relative to viewport
+            top: coords.top + 8,
+            left: Math.min(coords.left, window.innerWidth - 330), // Prevent going off-screen right
+            zIndex: 9999, // Above everything
+            width: "90vw",
+            maxWidth: 320,
+            background: "#16101f",
+            border: "1px solid rgba(212,168,83,0.22)",
+            borderRadius: 18,
+            boxShadow: "0 16px 60px rgba(0,0,0,0.8)",
+            overflow: "hidden",
+            direction: "rtl"
+          }}
+        >
+          {/* Search Input */}
+          <div style={{ padding: "12px 12px 8px" }}>
+            <div style={{ position: "relative" }}>
+              <input
+                ref={searchRef}
+                placeholder="חפש אמוג'י..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={{
+                  width: "100%", background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.09)",
+                  borderRadius: 10, padding: "8px 34px 8px 10px",
+                  color: "#f0e8d8", fontSize: 14, outline: "none",
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Categories */}
+          {!search.trim() && (
+            <div style={{ display: "flex", gap: 2, padding: "0 10px 8px", overflowX: "auto" }}>
+              {Object.keys(EMOJI_CATEGORIES).map((key) => (
+                <button
+                  key={key}
+                  onClick={() => setTab(key)}
+                  style={{
+                    padding: "5px 7px", borderRadius: 8, fontSize: 17, border: "none",
+                    background: tab === key ? "rgba(212,168,83,0.18)" : "transparent",
+                    cursor: "pointer"
+                  }}
+                >
+                  {key}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Grid */}
+          <div style={{
+            display: "grid", gridTemplateColumns: "repeat(7, 1fr)",
+            gap: 2, padding: "0 10px 12px", maxHeight: 200, overflowY: "auto"
+          }}>
+            {displayEmojis.map((emoji: string, i: number)  => (
+              <button
+                key={emoji + i}
+                onClick={() => pick(emoji)}
+                style={{
+                  fontSize: 22, padding: "5px", borderRadius: 8, border: "none",
+                  background: "transparent", cursor: "pointer", color: "#f0e8d8"
+                }}
+              >
+                {emoji === "" ? "❌" : emoji}
+              </button>
+            ))}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
+  return (
+    <div style={{ position: "relative", display: "inline-block" }}>
+      <div style={{ fontSize: 10, color: color, marginBottom: 4, fontWeight: 700, letterSpacing: "0.1em" }}>
+        אמוג&#39;י
+      </div>
+      <motion.button
+        ref={triggerRef}
+        type="button"
+        onClick={toggleOpen}
+        whileTap={{ scale: 0.95 }}
+        style={{
+          width: 50, height: 50, borderRadius: 4, fontSize: 24,
+          background: "rgba(255,255,255,0.03)",
+          border: "1px solid rgba(192,57,43,0.3)",
+          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center"
+        }}
+      >
+        {value || "🔥"}
+      </motion.button>
+
+      {/* Render the panel into the body so it's never cut off */}
+      {typeof document !== "undefined" && createPortal(pickerPanel, document.body)}
+    </div>
+  );
+}
 
 const EMOJI_CATEGORIES = {
   "❤️": {
     label: "רומנטי",
-    emojis: ["", "❤️","💕","💖","💗","💘","💝","💞","🌹","🌷","💐","✨","💫","🌟","⭐","🕯️","💍","🥂","🫦","🎻","🎶","🌙","🌌","🌠","💌","🫀"],
+    emojis: ["", "❤️", "🖤","💕","💖","💗","💘","💝","💞","🌹","🌷","💐","✨","💫","🌟","⭐","🕯️","💍","🥂","🫦","🎻","🎶","🌙","🌌","🌠","💌","🫀"],
   },
   "🍽️": {
     label: "אוכל",
@@ -20,229 +188,19 @@ const EMOJI_CATEGORIES = {
   },
   "🎭": {
     label: "תרבות",
-    emojis: ["", "🎭","🎨","🖼️","🎬","🎤","🎸","🎹","🎺","🥁","📚","🖋️","🏛️","🎡","🎢","🎪","🎠","🃏","🎲","♟️","🎯","📸","🎥","🎞️","🎤","🎧"],
+    emojis: ["", "🎭","🎨","🖼️","🎬","🎤","🎸","🎹","🎺","🥁","📚","🖋️","🏛️","🎡","🎢","🎪","🎠","🃏","🎲","♟️","🎯","📸","🎥","🎞️","🎤","🎧", "🔴", "⚡", "🕶️", "🔇"],
   },
   "🛋️": {
     label: "נוח",
-    emojis: ["", "🛋️","🛁","🧸","🕯️","☕","🍵","🫖","📖","🎮","🧩","🎲","🍿","🧦","🪴","🌿","🧘","💆","🛌","🧴","🕯️","🌙","⭐","🌛","🪵","🔥"],
+    emojis: ["", "🛋️","🛁","🧸","🕯️","☕","🍵","🫖","📖","🎮","🧩","🎲","🍿","🧦","🪴","🌿","🧘","💆","🛌","🧴","🕯️","🌙","⭐","🌛","🪵","🔥", "⛓️", "🚿", "🪞"],
   },
   "🌍": {
     label: "טיול",
-    emojis: ["", "🌍","✈️","🚂","🛳️","🚡","🗼","🗽","🏰","🎡","🏖️","🏝️","⛩️","🕌","🌁","🌄","🌅","🌃","🌆","🌉","🎑","🏟️","🎆","🎇","🛺","🚁"],
+    emojis: ["", "🌍","✈️","🚂","🛳️","🚡","🗼","🗽","🏰","🎡","🏖️","🏝️","⛩️","🕌","🌁","🌄","🌅","🌃","🌆","🌉","🎑","🏟️","🎆","🎇","🛺","🚁", "💦"],
   },
 };
 
 const ALL_EMOJIS = Object.values(EMOJI_CATEGORIES).flatMap(c => c.emojis);
-
-// ── Component ─────────────────────────────────────────────────────────────────
-
-interface EmojiPickerProps {
-  value: string;
-  onChange: (emoji: string) => void;
-}
-
-export default function EmojiPicker({ value, onChange } : EmojiPickerProps) {
-  const [open,   setOpen]   = useState(false);
-  const [search, setSearch] = useState("");
-  const [tab,    setTab]    = useState(Object.keys(EMOJI_CATEGORIES)[0]);
-  const searchRef           = useRef<HTMLInputElement>(null);
-  const wrapRef             = useRef<HTMLInputElement>(null);
-
-  const isMobile = typeof window !== "undefined" && /Mobi|Android/i.test(navigator.userAgent);
-
-
-  // Focus search when panel opens
-  useEffect(() => {
-  if (open) {
-      // Only auto-focus if we are NOT on mobile
-      if (!isMobile) {
-        const timer = setTimeout(() => searchRef.current?.focus(), 80);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [open, isMobile]);
-
-  // Close on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const displayEmojis = useMemo(() => {
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      return ALL_EMOJIS.filter(e => {
-        // Cast EMOJI_NAMES as a Record to allow string indexing
-        const nameMap = EMOJI_NAMES as Record<string, string>;
-        return nameMap[e]?.includes(q);
-      });
-    }
-    
-    // Cast EMOJI_CATEGORIES to any or a specific record type
-    const categories = EMOJI_CATEGORIES as Record<string, { label: string; emojis: string[] }>;
-    return categories[tab]?.emojis ?? [];
-  }, [search, tab]);
-
-  const pick = (emoji: string) => {
-    onChange(emoji);
-    setOpen(false);
-    setSearch("");
-  };
-
-  return (
-    <div ref={wrapRef} style={{ position: "relative" }}>
-      {/* ── Trigger button ── */}
-      <div style={{ marginBottom: 16 }}>
-        <div style={{
-          fontSize: 11, letterSpacing: "0.09em", textTransform: "uppercase",
-          color: "#5a4a6a", marginBottom: 6, fontWeight: 500,
-        }}>
-          אמוג&#39;י
-        </div>
-        <motion.button
-          onClick={() => setOpen(o => !o)}
-          whileHover={{ scale: 1.06 }}
-          whileTap={{ scale: 0.94 }}
-          style={{
-            width: 60, height: 60, borderRadius: 14, fontSize: 28,
-            background: open ? "rgba(212,168,83,0.12)" : "rgba(255,255,255,0.04)",
-            border: `1px solid ${open ? "rgba(212,168,83,0.5)" : "rgba(255,255,255,0.1)"}`,
-            cursor: "pointer", display: "flex", alignItems: "center",
-            justifyContent: "center", transition: "all 0.18s",
-          }}
-        >
-          {value}
-        </motion.button>
-      </div>
-
-      {/* ── Picker panel ── */}
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -8, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0,  scale: 1    }}
-            exit={{   opacity: 0, y: -8,  scale: 0.96 }}
-            transition={{ duration: 0.18 }}
-            style={{
-              position: "absolute",
-              top: "calc(100% - 8px)",
-              right: isMobile ? 0 : "auto",
-              left: isMobile ? "auto" : 0,
-              zIndex: 200,
-              width: "90vw",
-              maxWidth: 320,
-              background: "#16101f",
-              border: "1px solid rgba(212,168,83,0.22)",
-              borderRadius: 18,
-              boxShadow: "0 16px 60px rgba(0,0,0,0.7)",
-              overflow: "hidden",
-            }}
-          >
-            {/* Search */}
-            <div style={{ padding: "12px 12px 8px" }}>
-              <div style={{ position: "relative" }}>
-                <span style={{
-                  position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
-                  fontSize: 14, pointerEvents: "none", opacity: 0.45,
-                }}>🔍</span>
-                <input
-                  ref={searchRef}
-                  placeholder="חפש אמוג'י..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  style={{
-                    width: "100%", background: "rgba(255,255,255,0.06)",
-                    border: "1px solid rgba(255,255,255,0.09)",
-                    borderRadius: 10, padding: "8px 34px 8px 10px",
-                    color: "#f0e8d8", fontSize: 14,
-                    outline: "none", fontFamily: "inherit",
-                    direction: "rtl",
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Category tabs — only shown when not searching */}
-            {!search.trim() && (
-              <div style={{
-                display: "flex", gap: 2, padding: "0 10px 8px",
-                overflowX: "auto",
-              }}>
-                {Object.entries(EMOJI_CATEGORIES).map(([key, { label }]) => (
-                  <motion.button
-                    key={key}
-                    onClick={() => setTab(key)}
-                    whileTap={{ scale: 0.9 }}
-                    title={label}
-                    style={{
-                      flexShrink: 0, padding: "5px 7px", borderRadius: 8, fontSize: 17,
-                      border: "none", cursor: "pointer",
-                      background: tab === key ? "rgba(212,168,83,0.18)" : "transparent",
-                      outline: tab === key ? "1px solid rgba(212,168,83,0.35)" : "none",
-                      transition: "background 0.15s",
-                    }}
-                  >
-                    {key}
-                  </motion.button>
-                ))}
-              </div>
-            )}
-
-            {/* Grid */}
-            <div style={{
-              display: "grid", gridTemplateColumns: "repeat(7, 1fr)",
-              gap: 2, padding: "0 10px 12px",
-              maxHeight: 200, overflowY: "auto",
-            }}>
-              {displayEmojis.length === 0 ? (
-                <div style={{
-                  gridColumn: "1 / -1", textAlign: "center",
-                  padding: "20px 0", color: "#4a3a5a", fontSize: 13,
-                  fontStyle: "italic",
-                }}>
-                  לא נמצאו תוצאות
-                </div>
-              ) : (
-                displayEmojis.map((emoji, i) => (
-                  <motion.button
-                    key={emoji + i}
-                    onClick={() => pick(emoji)}
-                    whileHover={{ scale: 1.1, background: "rgba(212,168,83,0.15)" }}
-                    whileTap={{ scale: 0.9 }}
-                    style={{
-                      fontSize: emoji === "" ? 14 : 22, // Smaller font if it's text
-                      padding: "5px",
-                      borderRadius: 8,
-                      border: "none",
-                      cursor: "pointer",
-                      background: value === emoji ? "rgba(212,168,83,0.2)" : "transparent",
-                      outline: value === emoji ? "1px solid rgba(212,168,83,0.4)" : "none",
-                      transition: "background 0.12s",
-                      lineHeight: 1,
-                      color: "#f0e8d8", // Ensure text color for the "None" label
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      minHeight: 40
-                    }}
-                  >
-                    {emoji === "" ? "  " : emoji} 
-                  </motion.button>
-                ))
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-// ── Emoji name map for search ─────────────────────────────────────────────────
-// Maps emoji → space-separated Hebrew + English keywords
 
 const EMOJI_NAMES = {
   "": "ריק empty",
@@ -335,4 +293,13 @@ const EMOJI_NAMES = {
   "🌅": "sunset שקיעה",
   "🌃": "night city לילה עיר",
   "🎆": "fireworks זיקוקים",
+  "🖤": "black heart לב שחור",
+  "⛓️": "chains שרשרת שרשראות",
+  "💦": "splash water שפריץ מים",
+  "🚿": "shower head ראש מקלחת",
+  "🔴": "red circle עיגול אדום",
+  "⚡": "lightning spark חשמל ברק",
+  "🕶️": "sun glasses משקפי שמש",
+  "🪞": "mirror מראה",
+  "🔇": "mute sound רעש מושתק",
 };
